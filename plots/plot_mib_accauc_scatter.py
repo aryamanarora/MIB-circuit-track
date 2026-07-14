@@ -99,13 +99,13 @@ df["gfam"] = df["family"].map(lambda f: "MAttr" if f in ("L2A", "MAttr") else "g
 COLORS = {"MAttr sigmoid log-k": "#e41a1c", "GIM": "#377eb8",
           "other MAttr": "#4daf4a", "other grad": "#999999"}
 p = (ggplot(df, aes("acc_auc", "cpr", color="group", shape="gfam"))
-     + geom_point(size=2.6, alpha=0.8, stroke=0)
+     + geom_point(size=2.0, alpha=0.8)
      + facet_wrap("~ cell", ncol=6)
      + scale_color_manual(values=COLORS, breaks=GROUPS)
      + scale_shape_manual(values={"MAttr": "^", "grad": "o"})
      + labs(x="acc-AUC ($\\uparrow$)", y="CPR-AUC (faithfulness)",
             color="Group", shape="Family")
-     + guides(color=guide_legend(nrow=2), shape=guide_legend(nrow=2))
+     + guides(color=guide_legend(nrow=1), shape=guide_legend(nrow=1))
      + theme(figure_size=(5.5, 2.9), legend_position="bottom",
              legend_box="horizontal", legend_margin=0,
              axis_text=element_text(size=5), axis_title=element_text(size=7),
