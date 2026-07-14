@@ -21,7 +21,10 @@ for dir in "${DIRS[@]}"; do
     # resources + eval batch/head by model & task
     case "$model" in
       llama3) mem=96G; cpus=4; tlim=04:00:00; abatch=1; head=200 ;;
-      gemma2) mem=64G; cpus=3; tlim=03:00:00; head=0
+      gemma2) mem=64G; cpus=3; tlim=03:00:00
+              # ioi val is ~2500 batches; full-val eval x12 passes blows the wall clock
+              # on gemma2 (~1 it/s => ~8h), so cap ioi like llama. mcqa/arc finish uncapped.
+              case "$task" in ioi) head=200 ;; *) head=0 ;; esac
               case "$task" in arc_*|arithmetic_*) abatch=1 ;; *) abatch=4 ;; esac ;;
       qwen2.5) mem=32G; cpus=4; tlim=02:00:00; abatch=10; head=0 ;;
       *)      mem=32G; cpus=4; tlim=02:00:00; abatch=20; head=0 ;;   # gpt2
