@@ -81,7 +81,9 @@ df = pd.DataFrame(rows)
 print(f"loaded {len(df)} points across {df['task'].nunique()} tasks, {df['method'].nunique()} methods")
 print(df.groupby("family").size().to_string())
 
-df["cell"] = df["model"] + " / " + df["task"]
+TASK_ABBR = {"arc_easy": "arc-e", "arc_challenge": "arc-c", "arithmetic_addition": "arith-add",
+             "arithmetic_subtraction": "arith-sub", "ioi": "ioi", "mcqa": "mcqa"}
+df["cell"] = df["model"] + "/" + df["task"].map(lambda t: TASK_ABBR.get(t, t))
 
 GROUPS = ["MAttr sigmoid log-k", "GIM", "other MAttr", "other grad"]
 def group_of(r):
@@ -97,14 +99,18 @@ df["gfam"] = df["family"].map(lambda f: "MAttr" if f in ("L2A", "MAttr") else "g
 COLORS = {"MAttr sigmoid log-k": "#e41a1c", "GIM": "#377eb8",
           "other MAttr": "#4daf4a", "other grad": "#999999"}
 p = (ggplot(df, aes("acc_auc", "cpr", color="group", shape="gfam"))
-     + geom_point(size=2.6, alpha=0.85)
-     + facet_wrap("~ cell", ncol=4)
+     + geom_point(size=1.4, alpha=0.85, stroke=0)
+     + facet_wrap("~ cell", ncol=6)
      + scale_color_manual(values=COLORS, breaks=GROUPS)
      + scale_shape_manual(values={"MAttr": "^", "grad": "o"})
-     + labs(x="acc-AUC  (log-weighted decision accuracy $\\uparrow$)",
-            y="CPR-AUC  (faithfulness area)", color="Group", shape="Family")
-     + guides(color=guide_legend(ncol=1))
-     + theme(figure_size=(10.5, 7.5)))
+     + labs(x="acc-AUC ($\\uparrow$)", y="CPR-AUC (faithfulness)",
+            color="Group", shape="Family")
+     + guides(color=guide_legend(nrow=2), shape=guide_legend(nrow=2))
+     + theme(figure_size=(5.5, 2.9), legend_position="bottom",
+             legend_box="horizontal", legend_margin=0,
+             axis_text=element_text(size=5), axis_title=element_text(size=7),
+             strip_text=element_text(size=5.5), legend_text=element_text(size=6),
+             legend_title=element_text(size=6.5)))
 p.save("results/mib_accauc_scatter.pdf", verbose=False)
 p.save("/tmp/mib_accauc_scatter.png", dpi=150, verbose=False)
 print("wrote results/mib_accauc_scatter.pdf and /tmp/mib_accauc_scatter.png")
