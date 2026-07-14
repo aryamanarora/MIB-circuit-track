@@ -10,9 +10,9 @@ Run (from MIB-circuit-track, with the l2a venv that has plotnine):
 import glob, os, pickle
 import pandas as pd
 from plotnine import (
-    ggplot, aes, geom_point, geom_vline, facet_wrap, labs, theme_set, theme_bw,
-    theme, element_text, element_line, element_blank, scale_shape_manual, guides,
-    guide_legend,
+    ggplot, aes, geom_point, facet_wrap, labs, theme_set, theme_bw,
+    theme, element_text, element_line, element_blank, scale_shape_manual,
+    scale_color_manual, guides, guide_legend,
 )
 
 theme_set(theme_bw(base_size=9) + theme(
@@ -82,12 +82,27 @@ print(f"loaded {len(df)} points across {df['task'].nunique()} tasks, {df['method
 print(df.groupby("family").size().to_string())
 
 df["cell"] = df["model"] + " / " + df["task"]
-p = (ggplot(df, aes("acc_auc", "cpr", color="method", shape="family"))
-     + geom_point(size=2.4, alpha=0.85)
+
+GROUPS = ["MAttr sigmoid log-k", "GIM", "other MAttr", "other grad"]
+def group_of(r):
+    if r["method"] == "L2A":
+        return "MAttr sigmoid log-k"
+    if r["method"] == "GIM":
+        return "GIM"
+    return "other MAttr" if r["family"] in ("L2A", "MAttr") else "other grad"
+df["group"] = df.apply(group_of, axis=1)
+df["group"] = pd.Categorical(df["group"], categories=GROUPS, ordered=True)
+df["gfam"] = df["family"].map(lambda f: "MAttr" if f in ("L2A", "MAttr") else "grad")
+
+COLORS = {"MAttr sigmoid log-k": "#e41a1c", "GIM": "#377eb8",
+          "other MAttr": "#4daf4a", "other grad": "#999999"}
+p = (ggplot(df, aes("acc_auc", "cpr", color="group", shape="gfam"))
+     + geom_point(size=2.6, alpha=0.85)
      + facet_wrap("~ cell", ncol=4)
-     + scale_shape_manual(values={"baseline": "o", "MAttr": "^", "L2A": "D"})
+     + scale_color_manual(values=COLORS, breaks=GROUPS)
+     + scale_shape_manual(values={"MAttr": "^", "grad": "o"})
      + labs(x="acc-AUC  (log-weighted decision accuracy $\\uparrow$)",
-            y="CPR-AUC  (faithfulness area)", color="Method", shape="Family")
+            y="CPR-AUC  (faithfulness area)", color="Group", shape="Family")
      + guides(color=guide_legend(ncol=1))
      + theme(figure_size=(10.5, 7.5)))
 p.save("results/mib_accauc_scatter.pdf", verbose=False)
