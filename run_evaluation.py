@@ -85,13 +85,16 @@ if __name__ == "__main__":
                     absolute=args.absolute,
                     apply_greedy=apply_greedy,
                 )
-                weighted_edge_counts, area_under, area_from_1, average, faithfulnesses = eval_auc_outputs
+                weighted_edge_counts, area_under, area_from_1, average, faithfulnesses, accuracies, acc_auc = eval_auc_outputs
+                print(f"  CPR-AUC={area_under:.4f}  acc-AUC={acc_auc:.4f}  acc curve={[round(a,3) for a in accuracies]}")
                 d = {
                     "weighted_edge_counts": weighted_edge_counts,
                     "area_under": area_under,
                     "area_from_1": area_from_1,
                     "average": average,
-                    "faithfulnesses": faithfulnesses
+                    "faithfulnesses": faithfulnesses,
+                    "accuracies": accuracies,
+                    "acc_auc": acc_auc,
                 }
 
             method_name_saveable = f"{args.method}_{args.ablation}_{args.level}"

@@ -32,6 +32,7 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
 
     faithfulnesses = []
     weighted_edge_counts = []
+    accuracies = []
     for pct in percentages:
         this_graph = graph
         curr_num_items = int(pct * n_scored_items)
@@ -45,10 +46,14 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
         weighted_edge_count = this_graph.weighted_edge_count()
         weighted_edge_counts.append(weighted_edge_count)
 
-        ablated_score = evaluate_graph(model, this_graph, dataloader, metrics,
-                                       quiet=quiet, intervention=intervention,
-                                       intervention_dataloader=intervention_dataloader,
-                                       optimal_ablation_path=optimal_ablation_path).mean().item()
+        ablated_ex = evaluate_graph(model, this_graph, dataloader, metrics,
+                                    quiet=quiet, intervention=intervention,
+                                    intervention_dataloader=intervention_dataloader,
+                                    optimal_ablation_path=optimal_ablation_path)
+        ablated_score = ablated_ex.mean().item()
+        # accuracy at this sparsity: fraction of examples with metric>0 (base beats source).
+        # NB: correct for logit_diff-style tasks; greater-than/arithmetic use a different metric.
+        accuracies.append((ablated_ex > 0).float().mean().item())
         if no_normalize:
             faithfulness = ablated_score
         else:
@@ -72,7 +77,12 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
         trapezoidal = (x_2 - x_1) * ((faithfulnesses[i_1] + faithfulnesses[i_2]) / 2)
         area_under += trapezoidal
     average = sum(faithfulnesses) / len(faithfulnesses)
-    return weighted_edge_counts, area_under, area_from_1, average, faithfulnesses
+    # accuracy AUC: log-sparsity-weighted mean of accuracy (matches eval_sva's acc_auc), so it
+    # rewards recovering the decision at few nodes rather than the dense end.
+    lx = [math.log(p) for p in percentages]
+    acc_auc = (sum((lx[i + 1] - lx[i]) * (accuracies[i] + accuracies[i + 1]) / 2
+                   for i in range(len(accuracies) - 1)) / (lx[-1] - lx[0]))
+    return weighted_edge_counts, area_under, area_from_1, average, faithfulnesses, accuracies, acc_auc
 
 
 def compare_graphs(reference: Graph, hypothesis: Graph, by_node: bool = False):
