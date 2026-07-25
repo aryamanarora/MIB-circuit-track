@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import json
+import os
 import torch
 from transformer_lens import HookedTransformer
 from eap.graph import Graph
@@ -9,6 +10,8 @@ parser.add_argument('--path', type=str, required=True, help='Path to the UGS out
 parser.add_argument('--task', type=str, required=True, help='Task that UGS was run on')
 parser.add_argument('--ablation', type=str, required=True, help='Ablation that UGS was run with')
 parser.add_argument('--model', type=str, required=True, choices=['gpt2-small', 'qwen'], help='Model that UGS was run on')
+parser.add_argument('--lambdas', type=float, nargs='+', default=[1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7],
+                    help='Regularization constants to convert (a missing snapshot is skipped)')
 
 args = parser.parse_args()
 
@@ -17,12 +20,13 @@ task = args.task
 ablation = args.ablation
 model_str = args.model
 name = f'ugs_mib_{model_str}'
-lambdas = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+lambdas = args.lambdas
 
 if model_str == "gpt2-small":
     model_name = "gpt2-small"
 elif model_str == "qwen":
-    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+    # base model, matching MODEL_NAME_TO_FULLNAME in MIB_circuit_track/utils.py
+    model_name = "Qwen/Qwen2.5-0.5B"
 else:
     raise Exception('Model name not defined')
 
@@ -39,6 +43,10 @@ print(f'Graph has {g.real_edge_mask.sum()} real edges')
 for lamb in lambdas:
     res_folder = f'{path}/{task}/{ablation}/{name}/{lamb}'
     snapshot_path = f'{res_folder}/snapshot.pth'
+
+    if not os.path.exists(snapshot_path):
+        print(f'No snapshot at {snapshot_path}, skipping')
+        continue
 
     # load snapshot
     snapshot = torch.load(snapshot_path, map_location=torch.device('cpu'))
