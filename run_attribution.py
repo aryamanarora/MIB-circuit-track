@@ -85,8 +85,18 @@ if __name__ == "__main__":
             metric = get_metric('logit_diff', task, model.tokenizer, model)
             attribution_metric = partial(metric, mean=True, loss=True)
             if args.level == 'edge':
-                attribute(model, graph, dataloader, attribution_metric, args.method, args.ablation, 
-                            ig_steps=args.ig_steps, optimal_ablation_path=args.optimal_ablation_path,
+                # The pinned EAP-IG (submodule 5d72345) has no optimal_ablation_path parameter on
+                # attribute(), so passing it unconditionally made EVERY edge attribution die with
+                # TypeError before the first batch. The node branch below never passed it, which is
+                # why node baselines kept working and this stayed hidden. We only run --ablation
+                # patching, where the value is None and meaningless -- so drop it there and refuse
+                # loudly in the one case where it would actually have meant something.
+                if args.optimal_ablation_path is not None:
+                    raise ValueError(
+                        "edge attribution with an optimal-ablation path requires an EAP-IG whose "
+                        "attribute() accepts optimal_ablation_path; pinned 5d72345 does not")
+                attribute(model, graph, dataloader, attribution_metric, args.method, args.ablation,
+                            ig_steps=args.ig_steps,
                             intervention_dataloader=dataloader)
             else:
                 attribute_node(model, graph, dataloader, attribution_metric, args.method, 
