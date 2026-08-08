@@ -20,7 +20,7 @@ METHODS = {
     "RelP":      ("relp_accauc",        "RelP_patching_node"),
     "RelP-qk":   ("relp_qkgrad_accauc", "RelP-qkgrad_patching_node"),
     "GIM":       ("gim_accauc",         "GIM_patching_node"),
-    "AttnRLP":   ("attnrlp_accauc",     "AttnRLP_patching_node"),
+    "RelP+Shapley":   ("relpshapley_accauc",     "RelPShapley_patching_node"),
 }
 BASE = "results"
 

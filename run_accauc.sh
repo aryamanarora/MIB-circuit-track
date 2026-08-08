@@ -7,7 +7,7 @@ set -u
 ABS=/home/guests/aryaman/MIB-circuit-track; cd "$ABS"; PY=$ABS/.venv/bin/python
 pp="export PYTHONPATH=EAP-IG/src:.; export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
 
-DIRS=(napig_ref napig_local ig1 relp relp_qkgrad gim attnrlp)
+DIRS=(napig_ref napig_local ig1 relp relp_qkgrad gim relpshapley)
 n=0
 for dir in "${DIRS[@]}"; do
   while IFS= read -r cpath; do

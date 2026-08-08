@@ -33,7 +33,7 @@ BASELINES = {
     "napig_ref_accauc": "EAP-IG-inputs_patching_node", "napig_local_accauc": "EAP-IG-inputs-local_patching_node",
     "ig1_accauc": "EAP-IG-inputs_patching_node", "relp_accauc": "RelP_patching_node",
     "relp_qkgrad_accauc": "RelP-qkgrad_patching_node", "gim_accauc": "GIM_patching_node",
-    "attnrlp_accauc": "AttnRLP_patching_node",
+    "relpshapley_accauc": "RelPShapley_patching_node",
 }
 GIM_DIR = "gim_accauc"
 MATTR = {

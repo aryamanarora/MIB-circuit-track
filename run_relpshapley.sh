@@ -15,9 +15,9 @@ for cell in "${CELLS[@]}"; do
   else mem=32G; tlim=02:00:00; fi
   [ "$nex" = "full" ] && nf="" || nf="--num-examples $nex"
   [ "$ehead" = "0" ] && hf="" || hf="--head $ehead"
-  name="v-attnrlp-${task}-${model}"
+  name="v-relpshapley-${task}-${model}"
   cmd="$pp; \
-$PY run_attribution.py --models $model --tasks $task --method AttnRLP --level node --ablation patching --split train --batch-size $abatch $nf --circuit-dir results/attnrlp && \
-$PY run_evaluation.py --models $model --tasks $task --method AttnRLP --level node --ablation patching --split validation --batch-size $abatch $hf --circuit-dir results/attnrlp --output-dir results/attnrlp_eval"
+$PY run_attribution.py --models $model --tasks $task --method RelPShapley --level node --ablation patching --split train --batch-size $abatch $nf --circuit-dir results/relpshapley && \
+$PY run_evaluation.py --models $model --tasks $task --method RelPShapley --level node --ablation patching --split validation --batch-size $abatch $hf --circuit-dir results/relpshapley --output-dir results/relpshapley_eval"
   sbatch --partition=main --gres=gpu:1 --cpus-per-task=4 --mem=$mem --time=$tlim --job-name="$name" --output="$ABS/logs/${name}.out" --wrap="$cmd" >/dev/null && echo "submitted $name"
 done

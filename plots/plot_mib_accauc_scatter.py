@@ -29,7 +29,7 @@ BASELINES = {
     "relp_accauc":        ("RelP",      "RelP_patching_node"),
     "relp_qkgrad_accauc": ("RelP-qk",   "RelP-qkgrad_patching_node"),
     "gim_accauc":         ("GIM",       "GIM_patching_node"),
-    "attnrlp_accauc":     ("AttnRLP",   "AttnRLP_patching_node"),
+    "relpshapley_accauc":     ("RelP+Shapley",   "RelPShapley_patching_node"),
 }
 # MAttr variant subdir (under results/mattr_accauc) -> label
 MATTR = {
