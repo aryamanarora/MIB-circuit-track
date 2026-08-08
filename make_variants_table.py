@@ -22,6 +22,7 @@ METHODS = [
     ("RelP",                        "relp_eval",        "RelP_patching_node"),
     ("RelP (QK grad)",              "relp_qkgrad_eval", "RelP-qkgrad_patching_node"),
     ("RelP+Shapley",                     "relpshapley_eval",     "RelPShapley_patching_node"),
+    ("AttnLRP",                     "attnlrp_eval",     "AttnLRP_patching_node"),
     ("GIM",                         "gim_eval",         "GIM_patching_node"),
 ]
 BASE = "results"

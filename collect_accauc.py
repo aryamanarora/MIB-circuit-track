@@ -21,6 +21,7 @@ METHODS = {
     "RelP-qk":   ("relp_qkgrad_accauc", "RelP-qkgrad_patching_node"),
     "GIM":       ("gim_accauc",         "GIM_patching_node"),
     "RelP+Shapley":   ("relpshapley_accauc",     "RelPShapley_patching_node"),
+    "AttnLRP":   ("attnlrp_accauc",     "AttnLRP_patching_node"),
 }
 BASE = "results"
 
