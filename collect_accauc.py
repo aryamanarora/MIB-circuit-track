@@ -1,7 +1,11 @@
 """Collect acc-AUC (and CPR-AUC) for every node method across the 12 cells.
 
-Reads the patched-eval pkls under results/<dir>_accauc/ (each has both `acc_auc`
-and `area_under`). Prints one table per metric: rows = task/model cell, cols = method.
+Reads each method's ORDINARY eval dir (run_evaluation.py has stored `acc_auc` alongside
+`area_under` in every pkl since MIB_circuit_track/evaluation.py started returning it), falling
+back to a legacy results/<dir>_accauc/ rerun only for methods scored before that change.
+Prints one table per metric: rows = task/model cell, cols = method.
+
+Adding a method: list its ordinary eval dir. No separate acc-AUC pass needs to be run.
 Run:  .venv/bin/python collect_accauc.py
 """
 import pickle, os, sys
@@ -12,29 +16,38 @@ CELLS = [
     ("llama3", "ioi"), ("llama3", "mcqa"), ("llama3", "arithmetic_addition"),
     ("llama3", "arithmetic_subtraction"), ("llama3", "arc_easy"), ("llama3", "arc_challenge"),
 ]
-# tag -> (output_dir, method_name_saveable)
+# tag -> ([output dirs, PRIMARY FIRST], method_name_saveable). GIM/AttnLRP postdate the
+# acc_auc change so they have no legacy dir -- and gim_nomlp_accauc must NOT be listed as one,
+# it belongs to the pre-scale_mlp_gate GIM.
 METHODS = {
-    "NAP-IG":    ("napig_ref_accauc",   "EAP-IG-inputs_patching_node"),
-    "NAP-local": ("napig_local_accauc", "EAP-IG-inputs-local_patching_node"),
-    "IxG(1)":    ("ig1_accauc",         "EAP-IG-inputs_patching_node"),
-    "RelP":      ("relp_accauc",        "RelP_patching_node"),
-    "RelP-qk":   ("relp_qkgrad_accauc", "RelP-qkgrad_patching_node"),
-    "GIM":       ("gim_accauc",         "GIM_patching_node"),
-    "RelP+Shapley":   ("relpshapley_accauc",     "RelPShapley_patching_node"),
-    "AttnLRP":   ("attnlrp_accauc",     "AttnLRP_patching_node"),
+    "NAP-IG":    (["napig_repro_eval", "napig_ref_accauc"],   "EAP-IG-inputs_patching_node"),
+    "NAP-local": (["napig_local_eval", "napig_local_accauc"], "EAP-IG-inputs-local_patching_node"),
+    "IxG(1)":    (["ig1_eval", "ig1_accauc"],                 "EAP-IG-inputs_patching_node"),
+    "RelP":      (["relp_eval", "relp_accauc"],               "RelP_patching_node"),
+    "RelP-qk":   (["relp_qkgrad_eval", "relp_qkgrad_accauc"], "RelP-qkgrad_patching_node"),
+    "GIM":       (["gim_eval"],                               "GIM_patching_node"),
+    "RelP+Shapley": (["relpshapley_eval", "relpshapley_accauc"], "RelPShapley_patching_node"),
+    "AttnLRP":   (["attnlrp_eval"],                           "AttnLRP_patching_node"),
 }
 BASE = "results"
 
 
-def load(odir, mdir, task, model):
+def load(odirs, mdir, task, model):
+    """First listed dir that has this cell WITH an acc_auc; None if none does."""
     stask = task.replace("_", "-")
-    p = f"{BASE}/{odir}/{mdir}/{stask}_{model}_validation_abs-False.pkl"
-    if not os.path.exists(p):
-        return None
-    try:
-        return pickle.load(open(p, "rb"))
-    except Exception:
-        return None
+    for odir in odirs:
+        p = f"{BASE}/{odir}/{mdir}/{stask}_{model}_validation_abs-False.pkl"
+        if not os.path.exists(p):
+            continue
+        try:
+            d = pickle.load(open(p, "rb"))
+        except Exception:
+            continue
+        # Pre-change pkls exist but carry acc_auc=None; skipping them is what makes the
+        # legacy fallback reachable at all.
+        if d.get("acc_auc") is not None:
+            return d
+    return None
 
 
 def table(metric, label):
