@@ -1,17 +1,33 @@
 #!/bin/bash
 # NAP-IG (EAP-IG-inputs, node level) at --ig-steps 30 across the 12 MIB paper cells.
 #
-# 30 is the default in upstream EAP-IG's function SIGNATURE (get_scores_eap_ig(steps=30), set by
-# hannamw in 3a60a25, 2024-03-02) -- but do not read that as "what upstream runs". The string
-# `ig_steps=30` appears nowhere in that repo's history: every example its authors wrote passes 5
-# instead, the notebooks since ed020fd (2024-07-09) and the README since ad8331e (2025-02-24,
-# "improving documentation"). MIB's harness ships 5 too (run_attribution.py:46) and always passes
-# it explicitly, so the 30 is dead code in every MIB run. Five is the de facto default of the
-# method as practised, which is what makes this ladder worth running: it is not a benchmark
-# cutting corners on a baseline, it is the setting the method's own authors demonstrate. The
-# 5-vs-10 control showed to be under-resolved -- the top of the ranking is still moving, and on
-# mcqa/qwen2.5 the largest-magnitude node (m0) flips SIGN between 5 and 10 steps. Since CPR-AUC
-# is probed at 0.1-1% sparsity, that unstable top-5 is what the metric is reading.
+# Five is not MIB cutting a corner -- it is the EAP-IG paper's DELIBERATE, DEFENDED choice.
+# Hanna et al. (COLM 2024) Appendix C is titled "EAP-IG Requires Few Steps": they sweep
+# m in {2,3,5,7,10,15,20,30,50} and conclude "although our results suggest even m = 3 steps
+# would suffice, we use m = 5, to leave a margin for error". They even pre-empt the objection --
+# "integrated gradients typically requires a higher number of steps; Sundararajan et al. (2017)
+# recommends between 20 and 300" -- and explain it away with two hypotheses, that approximation
+# accuracy does not matter for EAP-IG's purposes, and that clean and corrupted activations sit
+# close enough together that the path is short.
+#
+# So do NOT write "upstream defaults to 30". 30 is a vestigial function-signature default
+# (get_scores_eap_ig(steps=30), hannamw 3a60a25, 2024-03-02); the string `ig_steps=30` appears
+# NOWHERE in that repo's history, while its notebooks (since ed020fd, 2024-07-09) and README
+# (ad8331e, 2025-02-24) all pass 5. MIB passes 5 explicitly, so the 30 never executes.
+#
+# What this ladder actually shows is a SCOPE LIMIT on Appendix C, not a contradiction of it.
+# Their sweep was run on EDGES, on three GPT-2 tasks, scored by faithfulness at fixed edge
+# counts. Our edge ladder reproduces them (10 steps changes nothing, if anything slightly
+# worse). At NODE level across four models it fails: CPR-AUC 0.85 -> 1.31, acc-AUC 0.30 ->
+# 0.46, and 5-step MLP rankings correlate rho +0.04 with their own converged selves -- closer
+# to 1-step I*G (+0.67) than to 10-step IG. Their hypothesis (b) is the likely reason it
+# splits that way: whatever makes the clean/corrupted path short for an edge score need not
+# make it short for an MLP's summed node total.
+#
+# The 5-vs-10 control is what showed 5 to be under-resolved at node level: the top of the
+# ranking is still moving, and on mcqa/qwen2.5 the largest-magnitude node (m0) flips SIGN
+# between 5 and 10 steps. Since CPR-AUC is probed at 0.1-1% sparsity, that unstable top-5 is
+# exactly what the metric is reading.
 #
 # The paper reports both this row and the 5-step row, so results/napig_ref* must stay intact.
 #
