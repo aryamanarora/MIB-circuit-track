@@ -51,7 +51,9 @@ CHEAP_SEEDS=${CHEAP_SEEDS:-"1 2"}   # extra replicates, cheap cells only -> the 
 # the floor on the 100-example ones (arc/arithmetic, gemma2 and llama3) by about sqrt(10) = 3.2x.
 # Reading those nine cells against a 1000-example floor would call noise a result. One 100-example
 # replicate pins the other end of that scaling; the remaining cells interpolate between the two.
-CHEAP="gpt2/ioi qwen2.5/ioi qwen2.5/mcqa gemma2/arc_easy"
+# Overridable so a cell that turns out anomalous can be replicated without editing this list:
+#   CHEAP="llama3/ioi" SEEDS="" CHEAP_SEEDS="1 2" ONLY=llama3 bash run_napig_mc.sh
+CHEAP=${CHEAP:-"gpt2/ioi qwen2.5/ioi qwen2.5/mcqa gemma2/arc_easy"}
 
 # cell: model task num_examples attr_batch eval_head(0=full)   [identical to run_napig10.sh]
 CELLS=(
