@@ -44,6 +44,12 @@ if __name__ == "__main__":
     parser.add_argument("--tasks", type=str, nargs='+', required=True)
     parser.add_argument("--method", type=str, required=True)
     parser.add_argument("--ig-steps", type=int, default=5)
+    # Only read by EAP-IG-inputs-mc, whose alpha grid is random rather than fixed. Varying this
+    # alone gives replicates of the SAME estimator, and their spread is its error bar -- which is
+    # the quantity that decides whether an mc-vs-ig1 difference is real. Every other method
+    # ignores it, so it is safe to pass unconditionally.
+    parser.add_argument("--mc-seed", type=int, default=0,
+                        help="alpha-sampling seed for EAP-IG-inputs-mc (ignored by other methods)")
     parser.add_argument("--ablation", type=str, choices=['patching', 'zero', 'mean', 'mean-positional', 'optimal'], default='patching')
     parser.add_argument("--optimal-ablation-path", type=str, default=None)
     parser.add_argument("--level", type=str, choices=['node', 'neuron', 'edge'], default='edge')
@@ -99,10 +105,10 @@ if __name__ == "__main__":
                             ig_steps=args.ig_steps,
                             intervention_dataloader=dataloader)
             else:
-                attribute_node(model, graph, dataloader, attribution_metric, args.method, 
+                attribute_node(model, graph, dataloader, attribution_metric, args.method,
                                 args.ablation, neuron=args.level == 'neuron', ig_steps=args.ig_steps,
                                 optimal_ablation_path=args.optimal_ablation_path,
-                                intervention_dataloader=dataloader)
+                                intervention_dataloader=dataloader, mc_seed=args.mc_seed)
 
             # Save the graph
             method_name_saveable = f"{args.method}_{args.ablation}_{args.level}"
