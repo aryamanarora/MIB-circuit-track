@@ -40,9 +40,18 @@ export_pp="export PYTHONPATH=EAP-IG/src:.; export PYTORCH_CUDA_ALLOC_CONF=expand
 
 DRYRUN=${DRYRUN:-0}
 ONLY=${ONLY:-}
-SEEDS=${SEEDS:-"0"}                 # run on every cell
+# ${SEEDS-...} not ${SEEDS:-...}: the colon form treats an explicitly empty SEEDS as unset and
+# silently restores "0", which makes "top up the replicates without resubmitting the base run"
+# -- SEEDS= CHEAP_SEEDS="1 2" -- impossible to express, and quietly duplicates finished jobs.
+SEEDS=${SEEDS-"0"}                  # run on every cell
 CHEAP_SEEDS=${CHEAP_SEEDS:-"1 2"}   # extra replicates, cheap cells only -> the noise floor
-CHEAP="gpt2/ioi qwen2.5/ioi qwen2.5/mcqa"
+# gemma2/arc_easy is NOT here to be cheap -- it is the cheapest cell with num_examples=100.
+# The other three all attribute over 1000 examples, and since alpha is drawn per example the MC
+# error scales like 1/sqrt(n_examples): a floor measured only on 1000-example cells understates
+# the floor on the 100-example ones (arc/arithmetic, gemma2 and llama3) by about sqrt(10) = 3.2x.
+# Reading those nine cells against a 1000-example floor would call noise a result. One 100-example
+# replicate pins the other end of that scaling; the remaining cells interpolate between the two.
+CHEAP="gpt2/ioi qwen2.5/ioi qwen2.5/mcqa gemma2/arc_easy"
 
 # cell: model task num_examples attr_batch eval_head(0=full)   [identical to run_napig10.sh]
 CELLS=(

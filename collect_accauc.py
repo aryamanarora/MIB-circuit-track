@@ -23,6 +23,10 @@ METHODS = {
     "NAP-IG":    (["napig_repro_eval", "napig_ref_accauc"],   "EAP-IG-inputs_patching_node"),
     "NAP-local": (["napig_local_eval", "napig_local_accauc"], "EAP-IG-inputs-local_patching_node"),
     "IxG(1)":    (["ig1_eval", "ig1_accauc"],                 "EAP-IG-inputs_patching_node"),
+    # Compute-matched to IxG(1) -- same one forward+backward per batch, alpha ~ U(0,1) per example
+    # instead of the m=1 grid's degenerate alpha=1. Kept adjacent to it in the column order because
+    # the ONLY reading of this arm that means anything is the difference between the two.
+    "MC-IG(1)":  (["napig_mc_eval"],                          "EAP-IG-inputs-mc_patching_node"),
     "RelP":      (["relp_eval", "relp_accauc"],               "RelP_patching_node"),
     "RelP-qk":   (["relp_qkgrad_eval", "relp_qkgrad_accauc"], "RelP-qkgrad_patching_node"),
     "GIM":       (["gim_eval"],                               "GIM_patching_node"),
