@@ -91,10 +91,18 @@ def seed_spread(model, task, metric):
     return vals, (max(vals) - min(vals) if len(vals) > 1 else None)
 
 
+def floor_for(metric):
+    """Worst-case seed spread across the replicated cells -- the noise floor, computed BEFORE
+    the main table so ratios can be guarded against it rather than against 1e-9."""
+    sps = [sp for m, t in CHEAP if (sp := seed_spread(m, t, metric)[1]) is not None]
+    return max(sps) if sps else 0.0
+
+
 def main():
     for metric in METRICS:
+        floor = floor_for(metric)
         print("=" * 96)
-        print(f"{metric}   (higher is better)")
+        print(f"{metric}   (higher is better)     [seed floor {floor:.4f}]")
         hdr = f"{'cell':30}" + "".join(f"{n:>17}" for n, _, _ in ARMS) + f"{'MC - IxG':>12}"
         print(hdr)
         print("-" * len(hdr))
@@ -105,20 +113,33 @@ def main():
             gap = None if (ixg is None or mc is None) else mc - ixg
             if gap is not None:
                 gaps.append(gap)
-            # fraction of the 5x-cost arm's advantage that the free arm buys back. Only
-            # defined when m=5 actually beat IxG -- otherwise there is no headroom to recover
-            # and the ratio is a division by a number near zero.
-            if None not in (ixg, mc, m5) and m5 - ixg > 1e-9:
+            # Fraction of the 5x-cost arm's advantage that the free arm buys back. The
+            # denominator must clear the SEED FLOOR, not merely 1e-9: on the cells where m=5
+            # collapses to IxG (ioi/qwen2.5, mcqa/qwen2.5, both 0.0502 vs 0.0502) the headroom
+            # is a rounding difference and the ratio blows up to 4 digits, dragging a mean that
+            # then reads as "MC recovers 420,000% of IG's advantage". Those cells have no
+            # headroom to express a fraction OF -- report them as m=5-failures instead.
+            if None not in (ixg, mc, m5) and m5 - ixg > floor:
                 recovered.append((mc - ixg) / (m5 - ixg))
             row = f"{task + '/' + model:30}"
             row += "".join((f"{v:>17.4f}" if v is not None else f"{'--':>17}") for v in vals)
             row += (f"{gap:>+12.4f}" if gap is not None else f"{'--':>12}")
             print(row)
         print("-" * len(hdr))
+        # Two means per arm. The per-arm one answers "what does this arm score", the MATCHED one
+        # is the only one that may be compared ACROSS arms: while an MC cell is still running,
+        # its own mean silently omits that cell from itself but not from IG's, and if the missing
+        # cell is a hard one (ioi/gemma2 is IG m=30's second-worst) the incomplete arm is
+        # flattered by exactly the amount that matters.
+        shared = [(m, t) for m, t in CELLS
+                  if all(load(od, md, m, t, metric) is not None for _, od, md in ARMS)]
         for name, od, md in ARMS:
             done = [v for m, t in CELLS if (v := load(od, md, m, t, metric)) is not None]
             mean = statistics.fmean(done) if done else float("nan")
-            print(f"  {name:18} mean over {len(done):2}/12 = {mean:.4f}")
+            sh = statistics.fmean([load(od, md, m, t, metric) for m, t in shared]) if shared \
+                else float("nan")
+            print(f"  {name:18} mean over {len(done):2}/12 = {mean:.4f}"
+                  f"   | matched ({len(shared)} cells) = {sh:.4f}")
         if gaps:
             print(f"  MC - IxG: mean {statistics.fmean(gaps):+.4f}, "
                   f"wins {sum(g > 0 for g in gaps)}/{len(gaps)} cells")
