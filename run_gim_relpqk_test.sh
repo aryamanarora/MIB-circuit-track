@@ -4,6 +4,15 @@
 #
 #   bash run_gim_relpqk_test.sh            # 22 jobs (11 cells x 2 methods)
 #   DRYRUN=1 bash run_gim_relpqk_test.sh   # preview
+#   ARMS=gim bash run_gim_relpqk_test.sh   # just one method
+#
+# WHY THE ARMS FILTER EXISTS. The Aug 6 run of this script wrote 11 GIM test pkls from the
+# PRE-FIX nomlp circuits; the GIM bug was fixed on Aug 8 and results/gim rebuilt, validation was
+# re-run, but test was not -- so the buggy test outputs were quarantined to _stale_gim_nomlp and
+# the paper has no GIM test row. Re-running the whole script to fix that would also recompute
+# RelP+QK, whose 11/11 test pkls are already correct: ~6 llama3 cells at up to 10h each, thrown
+# away. The failure would be silent (identical numbers rewritten), which is exactly the kind of
+# waste that never shows up in a diff.
 #
 # EVAL ONLY -- run_attribution.py is deliberately absent. Both methods attribute on the TRAIN
 # split (see run_gim.sh / run_relp_qkgrad.sh), so results/{gim,relp_qkgrad}/*.json is already
@@ -41,10 +50,12 @@ METHODS=(
  "gim GIM gim gim_eval"
  "relpqk RelP-qkgrad relp_qkgrad relp_qkgrad_eval"
 )
+ARMS=${ARMS:-"gim relpqk"}
 
 n=0
 for m in "${METHODS[@]}"; do
   read -r tag method cdir odir <<< "$m"
+  case " $ARMS " in *" $tag "*) ;; *) continue ;; esac
   for cell in "${CELLS[@]}"; do
     read -r model task ebatch <<< "$cell"
     if [ ! -d "$ABS/results/$cdir" ]; then
