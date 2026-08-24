@@ -54,7 +54,16 @@ ARM_SPECS=(
  "ig1  ig1        EAP-IG-inputs     ig1_test"
  "ref  napig_ref  EAP-IG-inputs     napig_ref_test"
  "m30  napig30    EAP-IG-inputs     napig30_test"
+ # m=10, added 2026-08-24. Its absence from the test split was an OVERSIGHT, not a decision --
+ # nothing in this file or in make_mib_test_table ever justified skipping it, and its 12
+ # train-split circuits have sat in results/napig10 since the validation wave. The gap only
+ # became visible when the figure and the table were put side by side: the scatter plots the
+ # ladder as 5 -> 10 (10 is where the integral converges on validation, rho 0.994 against 30),
+ # while the test table could only show 5 -> 30. Same method, different rungs, for no reason.
+ "m10  napig10    EAP-IG-inputs     napig10_test"
 )
+# m10 stays OUT of the default: the other four arms are complete at 11/11, and re-running them
+# would throw away ~24 llama3 cells at up to 10h each. Run it as ARMS=m10.
 ARMS=${ARMS:-"mc ig1 ref m30"}
 
 n=0; skipped=0
