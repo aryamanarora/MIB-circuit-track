@@ -49,7 +49,13 @@ CELLS=(
 METHODS=(
  "gim GIM gim gim_eval"
  "relpqk RelP-qkgrad relp_qkgrad relp_qkgrad_eval"
+ "relp RelP relp relp_eval"
 )
+# NOTE the default deliberately does NOT include relp. Both other arms are complete at 11/11,
+# so a bare `bash run_gim_relpqk_test.sh` must stay a no-op-sized job rather than silently
+# recomputing ~12 llama3 cells at up to 10h each -- the exact waste the ARMS filter was added
+# to prevent, described at the top of this file. Run the new arm explicitly:
+#   ARMS=relp bash run_gim_relpqk_test.sh
 ARMS=${ARMS:-"gim relpqk"}
 
 n=0
