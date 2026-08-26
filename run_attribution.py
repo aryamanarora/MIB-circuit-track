@@ -103,7 +103,7 @@ if __name__ == "__main__":
                         "attribute() accepts optimal_ablation_path; pinned 5d72345 does not")
                 attribute(model, graph, dataloader, attribution_metric, args.method, args.ablation,
                             ig_steps=args.ig_steps,
-                            intervention_dataloader=dataloader)
+                            intervention_dataloader=dataloader, mc_seed=args.mc_seed)
             else:
                 attribute_node(model, graph, dataloader, attribution_metric, args.method,
                                 args.ablation, neuron=args.level == 'neuron', ig_steps=args.ig_steps,
