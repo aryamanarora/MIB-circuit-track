@@ -13,12 +13,24 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
                               level:Literal['edge', 'node','neuron']='edge', log_scale:bool=False, absolute:bool=True, 
                               intervention: Literal['patching', 'zero', 'mean','mean-positional', 'optimal']='patching', 
                               intervention_dataloader:DataLoader=None, optimal_ablation_path:Optional[str]=None, 
-                              no_normalize:Optional[bool]=False, apply_greedy:bool=False):
-    baseline_score = evaluate_baseline(model, dataloader, metrics).mean().item()
-    graph.apply_topn(0, True)
-    corrupted_score = evaluate_graph(model, graph, dataloader, metrics, quiet=quiet, intervention=intervention, 
-                                     intervention_dataloader=intervention_dataloader, optimal_ablation_path=optimal_ablation_path).mean().item()
-    
+                              no_normalize:Optional[bool]=False, apply_greedy:bool=False,
+                              percentages=None, refs=None):
+    # BACKWARD-COMPATIBLE REFERENCE CACHE. Both references are GRAPH-INDEPENDENT: the baseline
+    # never touches the graph, and the corrupted score is apply_topn(0) -- the empty circuit,
+    # which is the same circuit whatever scores the graph carries. So a caller that evaluates
+    # many graphs over one dataloader can compute them once. Pass an empty dict to have them
+    # filled on the first call and reused after; pass nothing (the default) and every call
+    # recomputes exactly as before. Cuts a two-point call from 4 dataset passes to 2.
+    if refs is not None and 'baseline' in refs:
+        baseline_score, corrupted_score = refs['baseline'], refs['corrupted']
+    else:
+        baseline_score = evaluate_baseline(model, dataloader, metrics).mean().item()
+        graph.apply_topn(0, True)
+        corrupted_score = evaluate_graph(model, graph, dataloader, metrics, quiet=quiet, intervention=intervention,
+                                         intervention_dataloader=intervention_dataloader, optimal_ablation_path=optimal_ablation_path).mean().item()
+        if refs is not None:
+            refs['baseline'], refs['corrupted'] = baseline_score, corrupted_score
+
     if level == 'neuron':
         assert graph.neurons_scores is not None, "Neuron scores must be present for neuron-level evaluation"
         n_scored_items = (~torch.isnan(graph.neurons_scores)).sum().item()
@@ -28,7 +40,22 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
     else:
         n_scored_items = len(graph.edges)
     
-    percentages = (.001, .002, .005, .01, .02, .05, .1, .2, .5, 1)
+    # BACKWARD-COMPATIBLE: None keeps MIB's published ten-point grid, so every existing caller
+    # is unchanged. An explicit sequence lets a caller integrate over its own sparsities --
+    # scripts/mib/eval_dbm_multisparsity.py in the learning-to-attribute repo passes each DBM
+    # run's converged L0, so that row is produced by THIS function rather than a reimplementation
+    # of it. Must be sorted ascending and within (0, 1]; the trapezoid and the log-AUC below both
+    # assume it.
+    if percentages is None:
+        percentages = (.001, .002, .005, .01, .02, .05, .1, .2, .5, 1)
+    percentages = tuple(percentages)
+    # A ONE-POINT call is allowed and returns the raw faithfulness/accuracy at that proportion
+    # with the integrals as NaN -- there is no area under a single point, and returning 0 for it
+    # would be a number someone could average. Used by callers that build a curve out of points
+    # measured on DIFFERENT graphs and integrate it themselves.
+    assert len(percentages) >= 1, "need at least one point to evaluate"
+    assert all(a < b for a, b in zip(percentages, percentages[1:])), \
+        f"percentages must be strictly ascending, got {percentages}"
 
     faithfulnesses = []
     weighted_edge_counts = []
@@ -80,8 +107,11 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
     # accuracy AUC: log-sparsity-weighted mean of accuracy (matches eval_sva's acc_auc), so it
     # rewards recovering the decision at few nodes rather than the dense end.
     lx = [math.log(p) for p in percentages]
-    acc_auc = (sum((lx[i + 1] - lx[i]) * (accuracies[i] + accuracies[i + 1]) / 2
-                   for i in range(len(accuracies) - 1)) / (lx[-1] - lx[0]))
+    if len(percentages) < 2:
+        area_under = area_from_1 = acc_auc = float('nan')
+    else:
+        acc_auc = (sum((lx[i + 1] - lx[i]) * (accuracies[i] + accuracies[i + 1]) / 2
+                       for i in range(len(accuracies) - 1)) / (lx[-1] - lx[0]))
     return weighted_edge_counts, area_under, area_from_1, average, faithfulnesses, accuracies, acc_auc
 
 
