@@ -14,7 +14,18 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
                               intervention: Literal['patching', 'zero', 'mean','mean-positional', 'optimal']='patching', 
                               intervention_dataloader:DataLoader=None, optimal_ablation_path:Optional[str]=None, 
                               no_normalize:Optional[bool]=False, apply_greedy:bool=False,
-                              percentages=None, refs=None):
+                              percentages=None, refs=None, invert=False, extra=None):
+    # invert=True (learning-to-attribute, 2026-09-16): NOISING. At each proportion the top-n
+    # nodes are taken OUT of the graph and every other node kept in, so evaluate_graph corrupts
+    # exactly the selected components and leaves the rest clean -- the necessity direction, the
+    # mirror of the sufficiency sweep this function otherwise runs. Node level only. The two
+    # references, the grid and both integrals are unchanged, so faithfulnesses starts near 1
+    # (nothing patched) and falls; read area_from_1 as the score. The input node (forward index 0)
+    # is always kept clean: corrupting the embedding is not an ablation of a component, and in
+    # our graphs it carries the largest score, so it would otherwise be the first node patched.
+    # extra, if a dict, receives 'flip_accuracies' (fraction of examples whose metric goes
+    # NEGATIVE, i.e. the counterfactual answer wins -- the reverse-IIA reading of noising) and
+    # 'flip_acc_auc' (its log-trapezoid), so the 7-value return stays as every caller expects.
     # BACKWARD-COMPATIBLE REFERENCE CACHE. Both references are GRAPH-INDEPENDENT: the baseline
     # never touches the graph, and the corrupted score is apply_topn(0) -- the empty circuit,
     # which is the same circuit whatever scores the graph carries. So a caller that evaluates
@@ -69,7 +80,15 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
             this_graph.apply_greedy(curr_num_items, absolute=absolute, prune=True)
         else:
             this_graph.apply_topn(curr_num_items, absolute, level=level, prune=True)
-        
+        if invert:
+            assert level == 'node', 'invert (noising) is implemented for node level only'
+            scored = ~torch.isnan(this_graph.nodes_scores)
+            selected = this_graph.nodes_in_graph.clone()
+            this_graph.reset()
+            this_graph.nodes_in_graph[:] = (~selected) | (~scored)
+            this_graph.nodes_in_graph[0] = True
+            this_graph.in_graph += this_graph.nodes_in_graph.view(-1, 1)
+
         weighted_edge_count = this_graph.weighted_edge_count()
         weighted_edge_counts.append(weighted_edge_count)
 
@@ -81,6 +100,8 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
         # accuracy at this sparsity: fraction of examples with metric>0 (base beats source).
         # NB: correct for logit_diff-style tasks; greater-than/arithmetic use a different metric.
         accuracies.append((ablated_ex > 0).float().mean().item())
+        if extra is not None:
+            extra.setdefault('flip_accuracies', []).append((ablated_ex < 0).float().mean().item())
         if no_normalize:
             faithfulness = ablated_score
         else:
@@ -112,6 +133,10 @@ def evaluate_area_under_curve(model: HookedTransformer, graph: Graph, dataloader
     else:
         acc_auc = (sum((lx[i + 1] - lx[i]) * (accuracies[i] + accuracies[i + 1]) / 2
                        for i in range(len(accuracies) - 1)) / (lx[-1] - lx[0]))
+        if extra is not None and 'flip_accuracies' in extra:
+            fa = extra['flip_accuracies']
+            extra['flip_acc_auc'] = (sum((lx[i + 1] - lx[i]) * (fa[i] + fa[i + 1]) / 2
+                                         for i in range(len(fa) - 1)) / (lx[-1] - lx[0]))
     return weighted_edge_counts, area_under, area_from_1, average, faithfulnesses, accuracies, acc_auc
 
 
